@@ -47,9 +47,11 @@ Kubeconfig:
 
 Override either path with `KUBECONFIG` / `KUBECONFIG_PATH`.
 
-Bootstrap waits until the three ClusterServiceVersions succeed, waits for the Lightspeed ExternalSecret, and applies `OLSConfig`. Verify checks those CSVs, the ExternalSecret, and `OLSConfig`.
+Bootstrap waits until the three ClusterServiceVersions succeed, waits for the Lightspeed ExternalSecret, and applies `OLSConfig`. It plants Argo CD `Application` **`agentic-stack`** from **`GITOPS_REPO`** (default `https://github.com/rhcs-validated-patterns/layer-ocp-agentic.git`, revision `main`, overlay from `llm_backend`). Override with `GITOPS_REPO` / `GITOPS_REVISION` on bootstrap.
 
-On ROSA, if the ExternalSecret never becomes Ready, confirm the installer role can read `<cluster>-lightspeed-bedrock` (`additional_secrets` on the ROSA recipe) and re-apply the installer if you added that name after the first cluster apply.
+Verify checks those CSVs, the ExternalSecret, and `OLSConfig`.
+
+On ROSA, if the ExternalSecret never becomes Ready, confirm the installer role can read `<cluster>-lightspeed-bedrock` (`additional_secrets` on the ROSA recipe) and re-apply the installer if you added that name after the first cluster apply. Run installer **`make cluster.<name>.login`** before agentic bootstrap so `KUBECONFIG` reaches the API.
 
 ## Destroy
 

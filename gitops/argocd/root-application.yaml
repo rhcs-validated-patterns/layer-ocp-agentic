@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/rh-mobb/validated-pattern-aro-agentic.git
+    repoURL: https://github.com/rhcs-validated-patterns/layer-ocp-agentic.git
     targetRevision: main
     path: gitops/overlays/public
   destination:

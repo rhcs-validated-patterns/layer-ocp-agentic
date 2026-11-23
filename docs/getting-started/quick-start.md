@@ -40,10 +40,12 @@ Profiles in this repo:
 
 === "ROSA HCP"
 
+    Installer first (same shell, AWS + RHCS auth). Set `additional_secrets = ["<cluster_name>-lightspeed-bedrock"]` on the ROSA recipe. See the installer [platform contract](https://github.com/rh-mobb/validated-pattern-terraform-rosa/blob/main/docs/guides/platform-contract.md#rosa--agentic-deploy-order).
+
     ```bash
     export VP_TERRAFORM_ROSA_ROOT=/path/to/validated-pattern-terraform-rosa
-    # Do not set ARO_HCP_ROOT. Login in the installer so ~/.kube/config is current:
-    make -C "$VP_TERRAFORM_ROSA_ROOT" cluster.<name>.login
+    # Do not set ARO_HCP_ROOT.
+    make -C "$VP_TERRAFORM_ROSA_ROOT" cluster.<name>.init plan apply bootstrap platform login
 
     cp -r clusters/rosa-public clusters/my-agentic
     ```

@@ -1,6 +1,6 @@
 # Agentic stack agent playbook
 
-Sibling of the cluster installers. ARO: [`validated-pattern-aro-hcp`](../validated-pattern-aro-hcp) (`llm_backend=azure`). ROSA: [`vp-terraform-rosa`](../vp-terraform-rosa) (`llm_backend=aws`). Prerequisites: installer `apply` → kubeconfig (`kubeconfig` / `external-auth` on ARO, `login` on ROSA) → `bootstrap` → `platform`. Contracts: [`docs/guides/platform-contract.md`](docs/guides/platform-contract.md).
+Sibling of the cluster installers. ARO: [`validated-pattern-aro-hcp`](../validated-pattern-aro-hcp) (`llm_backend=azure`). ROSA: [`vp-terraform-rosa`](../vp-terraform-rosa) (`llm_backend=aws`). Prerequisites: installer `apply` → `bootstrap` → `platform` → kubeconfig (`kubeconfig` / `external-auth` on ARO, **`login` on ROSA**) → then agentic `apply` → `bootstrap`. ROSA installer needs `additional_secrets = ["<cluster_name>-lightspeed-bedrock"]`. Argo `agentic-stack` uses `GITOPS_REPO` default `https://github.com/rhcs-validated-patterns/layer-ocp-agentic.git`. Contracts: [`docs/guides/platform-contract.md`](docs/guides/platform-contract.md).
 
 ## Done-when
 
@@ -28,4 +28,6 @@ Sibling of the cluster installers. ARO: [`validated-pattern-aro-hcp`](../validat
 | Kuadrant NotReady (Gateway API) | No `openshift-default` GatewayClass | **Expected** when public MCP is off (default). With `ENABLE_MCP_GATEWAY_PUBLIC=true`, bootstrap applies `gitops/gateway-openshift/`; restart kuadrant operator if stalled |
 | MCPGatewayExtension not Ready | Gateway listener not Accepted / wrong `privateHost` | Only when `ENABLE_MCP_GATEWAY_PUBLIC=true`; TLS from IngressController **defaultCertificate** — see [MCP gateway networking](docs/guides/mcp-gateway-networking.md) |
 | ExternalSecret fails | KV secret names mismatch | Re-run installer ESO bootstrap; re-apply Terraform |
+| Bootstrap `Cannot reach API` | ROSA: no installer login before agentic bootstrap | `make -C "$VP_TERRAFORM_ROSA_ROOT" cluster.<name>.login`; export `KUBECONFIG=~/.kube/config` |
+| Argo `agentic-stack` sync from wrong repo | Stale `GITOPS_REPO` / old rh-mobb URL | Re-bootstrap with `GITOPS_REPO=https://github.com/rhcs-validated-patterns/layer-ocp-agentic.git` or patch Application `spec.source.repoURL` |
 | Console LS “LLM Backend” + `Invalid user ID` in app-server logs | Entra TokenReview UID is not UUID; postgres cache rejects | [Bug write-up](docs/troubleshooting/lightspeed-entra-invalid-user-id.md); file OCPBUGS |
