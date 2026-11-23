@@ -4,7 +4,7 @@ variable "platform_json" {
 }
 
 variable "llm_backend" {
-  description = "Cloud LLM IaC: azure (OpenAI PE + KV secrets), none (skip LLM Terraform; supply agentic.json for bootstrap). aws reserved for modules/aws."
+  description = "Cloud LLM IaC: azure (OpenAI private endpoint + Key Vault), aws (Bedrock + Secrets Manager), none (skip LLM Terraform; supply agentic.json for bootstrap)."
   type        = string
   default     = "azure"
 
