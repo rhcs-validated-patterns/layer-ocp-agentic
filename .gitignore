@@ -1,0 +1,58 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+*.tfplan
+*.tfplan.*
+.terraform.tfstate.lock.info
+
+# Example cluster tfvars are tracked. Any other tfvars stay local.
+*.tfvars
+*.tfvars.json
+!clusters/public/terraform.tfvars
+!clusters/private/terraform.tfvars
+!clusters/aro-agentic/terraform.tfvars
+!clusters/rosa-public/terraform.tfvars
+
+# Per-cluster operator artifacts. State, logs, and agentic.json can hold
+# cloud credentials (Azure keys, IAM access keys, Secrets Manager payloads).
+clusters/*/infrastructure.tfstate*
+clusters/*/.terraform/
+clusters/*/agentic.json
+clusters/*/logs/
+clusters/*/platform.json
+
+# Kubeconfig and CLI artifacts
+.kube/
+*.kubeconfig
+kubeconfig
+
+# Local secrets and env
+.env
+.env.*
+pull-secret.txt
+
+# Reference clones and generated docs
+references/
+.venv-docs/
+site/
+
+# Test artifacts
+tests/bats/tmp/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+.cursor/
+.claude/
+.history/
+*.swp
+*.swo
+*~

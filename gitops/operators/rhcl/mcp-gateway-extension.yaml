@@ -1,0 +1,15 @@
+# RHCL 1.5 MCP (TP). Requires openshift-default GatewayClass + Gateway listener (sectionName: mcps).
+apiVersion: mcp.kuadrant.io/v1
+kind: MCPGatewayExtension
+metadata:
+  name: mcp-gateway
+  namespace: mcp-gateway-system
+spec:
+  httpRouteManagement: Enabled
+  privateHost: REPLACE_PRIVATE_HOST
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: aro-agentic-mcp-gateway
+    namespace: openshift-ingress
+    sectionName: mcps

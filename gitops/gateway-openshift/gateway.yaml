@@ -1,0 +1,24 @@
+# Gateway for RHCL MCPGatewayExtension (listener name must match sectionName in mcp-gateway-extension.yaml).
+# TLS: same Secret as spec.defaultCertificate on IngressController default (router LE *.apps.<domain> on ROSA).
+# Bootstrap substitutes REPLACE_ROUTER_TLS_SECRET from the IngressController; not default-ingress-cert.
+# See docs/guides/mcp-gateway-networking.md
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: aro-agentic-mcp-gateway
+  namespace: openshift-ingress
+spec:
+  gatewayClassName: openshift-default
+  listeners:
+    - name: mcps
+      hostname: mcp.REPLACE_CLUSTER_DOMAIN
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: REPLACE_ROUTER_TLS_SECRET
+      allowedRoutes:
+        namespaces:
+          from: All

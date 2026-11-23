@@ -1,0 +1,21 @@
+# Applied by scripts/gitops-bootstrap.sh when agentic.json llm_backend=aws (model/region from agentic.json).
+# Lightspeed validates credentialsSecretRef for aws_access_key_id + aws_secret_access_key or apitoken (see operator utils).
+apiVersion: ols.openshift.io/v1alpha1
+kind: OLSConfig
+metadata:
+  name: cluster
+spec:
+  llm:
+    providers:
+      - name: bedrock
+        type: bedrock
+        # Lightspeed Bedrock type expects the regional Mantle gateway (not bedrock-runtime.amazonaws.com).
+        url: https://bedrock-mantle.BEDROCK_REGION.api.aws
+        credentialsSecretRef:
+          name: lightspeed-bedrock
+        models:
+          - name: BEDROCK_MODEL_ID
+  ols:
+    byokRAGOnly: true
+    defaultProvider: bedrock
+    defaultModel: BEDROCK_MODEL_ID

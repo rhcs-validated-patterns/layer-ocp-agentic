@@ -1,0 +1,23 @@
+# Applied by scripts/gitops-bootstrap.sh after ExternalSecret sync (endpoint/deployment from agentic.json).
+apiVersion: ols.openshift.io/v1alpha1
+kind: OLSConfig
+metadata:
+  name: cluster
+spec:
+  llm:
+    providers:
+      - name: azure_openai
+        type: azure_openai
+        credentialsSecretRef:
+          name: lightspeed-azure-openai
+        credentialKey: apitoken
+        apiVersion: API_VERSION
+        url: "https://REPLACE.openai.azure.com/"
+        deploymentName: DEPLOYMENT_NAME
+        models:
+          - name: DEPLOYMENT_NAME
+  ols:
+    # Small dev clusters (e.g. 2×worker) often cannot schedule RHOKP; re-enable OKP when nodes have headroom.
+    byokRAGOnly: true
+    defaultProvider: azure_openai
+    defaultModel: DEPLOYMENT_NAME

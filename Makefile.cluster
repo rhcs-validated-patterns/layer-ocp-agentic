@@ -1,0 +1,66 @@
+SHELL := /bin/bash
+ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+TF_DIR := $(ROOT_DIR)/terraform
+SCRIPTS := $(ROOT_DIR)/scripts
+CLUSTER_PROFILE ?= $(error CLUSTER_PROFILE must be set)
+CLUSTER_DIR := $(ROOT_DIR)/clusters/$(CLUSTER_PROFILE)
+TFVARS := $(CLUSTER_DIR)/terraform.tfvars
+TF_STATE := $(CLUSTER_DIR)/infrastructure.tfstate
+export TFVARS
+export CLUSTER := $(CLUSTER_PROFILE)
+export TF_DATA_DIR := $(abspath $(CLUSTER_DIR)/.terraform)
+unexport CLUSTER_NAME
+ARO_HCP_ROOT ?=
+ARO_HCP_PROFILE ?= $(CLUSTER_PROFILE)
+VP_TERRAFORM_ROSA_ROOT ?=
+ROSA_ROOT ?=
+ROSA_PROFILE ?= $(CLUSTER_PROFILE)
+ifneq ($(ROSA_ROOT),)
+VP_TERRAFORM_ROSA_ROOT := $(ROSA_ROOT)
+endif
+# Default: ARO installer kubeconfig; for ROSA use KUBECONFIG_PATH=$HOME/.kube/config after make cluster.<name>.login
+ifeq ($(strip $(ARO_HCP_ROOT)),)
+KUBECONFIG_PATH ?= $(HOME)/.kube/config
+else
+KUBECONFIG_PATH ?= $(ARO_HCP_ROOT)/.kube/config
+endif
+export KUBECONFIG := $(KUBECONFIG_PATH)
+
+.PHONY: check-tfvars init plan apply destroy bootstrap verify refresh-platform refresh-agentic-json
+
+check-tfvars:
+	@test -f "$(TFVARS)" || (echo "Missing $(TFVARS)" >&2; exit 1)
+
+refresh-platform:
+	@if [ -n "$(ARO_HCP_ROOT)" ]; then \
+		$(MAKE) -C "$(ARO_HCP_ROOT)" cluster.$(ARO_HCP_PROFILE).platform; \
+	elif [ -n "$(VP_TERRAFORM_ROSA_ROOT)" ]; then \
+		$(MAKE) -C "$(VP_TERRAFORM_ROSA_ROOT)" cluster.$(ROSA_PROFILE).platform; \
+	fi
+
+refresh-agentic-json: apply
+	@terraform -chdir=$(TF_DIR) output -json agentic | jq . >"$(CLUSTER_DIR)/agentic.json"
+	@echo "Wrote $(CLUSTER_DIR)/agentic.json"
+
+init: check-tfvars
+	terraform -chdir=$(TF_DIR) init -reconfigure -input=false \
+		-backend-config="path=$(TF_STATE)"
+
+plan: init refresh-platform
+	terraform -chdir=$(TF_DIR) plan -var-file="$(TFVARS)"
+
+apply: init refresh-platform
+	terraform -chdir=$(TF_DIR) apply -auto-approve -var-file="$(TFVARS)"
+	@terraform -chdir=$(TF_DIR) output -json agentic | jq . >"$(CLUSTER_DIR)/agentic.json"
+
+destroy: init
+	terraform -chdir=$(TF_DIR) destroy -auto-approve -var-file="$(TFVARS)"
+	@rm -f "$(CLUSTER_DIR)/agentic.json"
+
+bootstrap:
+	@export TFVARS="$(TFVARS)" KUBECONFIG="$(KUBECONFIG)"; \
+	bash $(SCRIPTS)/gitops-bootstrap.sh
+
+verify:
+	@export TFVARS="$(TFVARS)" KUBECONFIG="$(KUBECONFIG)"; \
+	bash $(SCRIPTS)/verify.sh

@@ -1,0 +1,14 @@
+# Allow MCPGatewayExtension in mcp-gateway-system to reference Gateway in openshift-ingress.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-mcp-gateway-system
+  namespace: openshift-ingress
+spec:
+  from:
+    - group: mcp.kuadrant.io
+      kind: MCPGatewayExtension
+      namespace: mcp-gateway-system
+  to:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
