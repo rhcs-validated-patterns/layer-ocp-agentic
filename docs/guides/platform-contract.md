@@ -1,16 +1,17 @@
-# Platform and agentic contracts
+# Platform contract
 
-This checkout is **cloud-agnostic at the GitOps layer** (COO, Lightspeed, RHCL). **LLM IaC** is selected by `llm_backend` in cluster `terraform.tfvars`.
+The cluster installer publishes `platform.json`. This repository reads it and publishes `agentic.json` for bootstrap.
 
-| `llm_backend` | Terraform | GitOps bootstrap |
-|---------------|-----------|------------------|
-| `azure` (default) | `modules/azure` | Azure `OLSConfig` + `lightspeed-azure-openai` ExternalSecret |
-| `aws` | `modules/aws` | Bedrock `OLSConfig` + SM-backed ExternalSecret (`gitops_overlay: aws`) |
-| `none` | No LLM resources | Operator install only; **you** must write complete `agentic.json` before bootstrap |
+Run the installer to completion first. This checkout does not create the cluster, the VNet or VPC, the Key Vault or the Secrets Manager IAM role, or External Secrets Operator.
 
-## `platform.json` (cluster installer → this repo)
+| Installer | Repository | `installer.cloud` | `llm_backend` here |
+|-----------|------------|-------------------|--------------------|
+| ARO HCP | [validated-pattern-aro-hcp](https://github.com/rh-mobb/validated-pattern-aro-hcp) | `azure` | `azure` |
+| ROSA HCP | [validated-pattern-terraform-rosa](https://github.com/rh-mobb/validated-pattern-terraform-rosa) | `aws` | `aws` |
 
-Published by the cluster installer:
+`terraform/platform_locals.tf` rejects the cross product. An ARO contract cannot drive `modules/aws`, and a ROSA contract cannot drive `modules/azure`.
+
+## Produce `platform.json`
 
 ```bash
 # ARO HCP
@@ -20,19 +21,65 @@ make -C "$ARO_HCP_ROOT" cluster.<profile>.platform
 make -C "$VP_TERRAFORM_ROSA_ROOT" cluster.<profile>.platform
 ```
 
-Or set `VP_TERRAFORM_ROSA_ROOT` / `ROSA_ROOT` so `make cluster.<profile>.plan` runs `refresh-platform` automatically.
+The file is gitignored at `clusters/<profile>/platform.json` inside the installer. Point this repo's `platform_json` at it. The path is relative to `terraform/`:
 
-**Portable core** (`contract_version: 1`): `installer.{repository,cloud}`, `cluster_name`, `cluster_id`, `openshift_version` / version pins, `api_url`, `oidc_issuer_url`, `machine_pools`, …
+```hcl
+# ARO — clusters/public/terraform.tfvars
+platform_json = "../../validated-pattern-aro-hcp/clusters/public/platform.json"
 
-**Azure extensions:** [ARO installer contract](https://github.com/rh-mobb/validated-pattern-aro-hcp/blob/main/docs/guides/platform-contract.md) — `subscription_id`, `key_vault_*`, `network.reserved.agentic_pe_subnet_prefix`, …
+# ROSA — clusters/rosa-public/terraform.tfvars
+platform_json = "../../vp-terraform-rosa/clusters/public/platform.json"
+llm_backend   = "aws"
+```
 
-**AWS extensions (ROSA):** [vp-terraform-rosa contract](https://github.com/rh-mobb/validated-pattern-terraform-rosa/blob/main/docs/guides/platform-contract.md) — `aws_account_id`, `region`, `network.*`, `secrets_manager_role_arn`, …
+Set `ARO_HCP_ROOT` or `VP_TERRAFORM_ROSA_ROOT` / `ROSA_ROOT` so `make cluster.<profile>.apply` refreshes that file before Terraform runs.
 
-Root Terraform reads `platform_json` and validates cloud prerequisites in `terraform/platform_locals.tf`.
+### Portable core (`contract_version: 1`)
+
+Both installers publish at least:
+
+| Field | Use |
+|-------|-----|
+| `contract_version` | `1` |
+| `installer` | `{ repository, cloud }` |
+| `cluster_name`, `cluster_id` | Names and the Bedrock secret prefix |
+| Version pins | `cluster_version` / `openshift_version` and node pool pins |
+| `api_url` | Reachability |
+| `oidc_issuer_url` | Workload identity, where the installer uses it |
+| `machine_pools` | Pool summary |
+
+Operator install (Cluster Observability, Lightspeed, Connectivity Link) is the same on both clouds once the cluster is OpenShift 5, `oc` works, and External Secrets can read the cloud secret store.
+
+### Azure extensions
+
+Published only by [the ARO contract](https://github.com/rh-mobb/validated-pattern-aro-hcp/blob/main/docs/guides/platform-contract.md). `llm_backend=azure` requires:
+
+| Field | Use |
+|-------|-----|
+| `subscription_id`, `tenant_id`, `location` | ARM scope |
+| `resource_group_name` | Customer resource group |
+| `network.vnet_name` and subnet fields | Private endpoint subnet |
+| `network.reserved.agentic_pe_subnet_prefix` | CIDR for that subnet (default `10.0.5.0/28`) |
+| `key_vault_id`, `key_vault_name`, `key_vault_uri` | API key and endpoint secrets |
+| `eso_client_id` | External Secrets workload identity |
+
+### AWS extensions
+
+Published only by [the ROSA contract](https://github.com/rh-mobb/validated-pattern-terraform-rosa/blob/main/docs/guides/platform-contract.md). `llm_backend=aws` requires:
+
+| Field | Use |
+|-------|-----|
+| `aws_account_id`, `region` | Account and default Bedrock region |
+| `network.*` | VPC context |
+| `secrets_manager_role_arn` | External Secrets IRSA role |
+
+Turn on `enable_secrets_manager_iam` on the ROSA recipe (GitOps bootstrap enables it unless you set `enable_secrets_manager_iam = false`). Add `<cluster_name>-lightspeed-bedrock` to installer `additional_secrets` so that role can read the secret this module creates.
 
 ## `agentic.json` (this repo → bootstrap)
 
-Written by `make cluster.<profile>.apply` (or hand-edited when `llm_backend = "none"`).
+`make cluster.<profile>.apply` writes gitignored `clusters/<profile>/agentic.json` from `terraform output -json agentic`. `scripts/gitops-bootstrap.sh` templates `OLSConfig` and the ExternalSecret from it.
+
+With `llm_backend = "none"`, Terraform does not write a usable LLM contract. Create `agentic.json` yourself before bootstrap.
 
 ### Azure (`llm_backend: azure`)
 
@@ -57,7 +104,7 @@ Written by `make cluster.<profile>.apply` (or hand-edited when `llm_backend = "n
   "contract_version": 1,
   "llm_backend": "aws",
   "bedrock_region": "ap-southeast-2",
-  "bedrock_model_id": "openai.gpt-oss-20b",
+  "bedrock_model_id": "deepseek.v3.2",
   "secrets_manager_secret_name": "<cluster>-lightspeed-bedrock",
   "lightspeed_llm_provider_name": "bedrock",
   "lightspeed_secret_name": "lightspeed-bedrock",
@@ -65,40 +112,27 @@ Written by `make cluster.<profile>.apply` (or hand-edited when `llm_backend = "n
 }
 ```
 
-**Secrets Manager payload** (synced by ESO into `openshift-lightspeed/<lightspeed_secret_name>`):
+Secrets Manager payload synced into `openshift-lightspeed/<lightspeed_secret_name>`:
 
-| Key | Required by Lightspeed | Source |
+| Key | Lightspeed uses it for | Source |
 |-----|------------------------|--------|
-| `region`, `model_id` | Bedrock provider config | Use IDs from Mantle `GET /v1/models` for your `bedrock_region` (see `scripts/bedrock-discover.sh`); pick one that passes `POST /v1/chat/completions` |
-| `aws_access_key_id`, `aws_secret_access_key` | Credential validation | `provision_bedrock_iam_user` (default `true`) or `bedrock_credentials_extra` |
-| `apitoken` | Alternative to IAM keys | Customer-managed secret (not created by default module) |
+| `region`, `model_id` | Bedrock provider | `bedrock_region` and `bedrock_model_id`. Confirm the model with `scripts/bedrock-discover.sh` |
+| `aws_access_key_id`, `aws_secret_access_key` | Credential check | IAM user when `provision_bedrock_iam_user` is true (the default), or `bedrock_credentials_extra` |
+| `apitoken` | Alternative to IAM keys | Customer-managed. The module does not create this key |
 
-On the **installer** cluster, add the SM secret name to `additional_secrets` so the ESO IRSA role can read it (after `make cluster.<name>.apply` in this repo knows the name, or use `{cluster}-lightspeed-bedrock`).
+`gitops_overlay: aws` selects `gitops/overlays/aws`, which installs the same operator subscriptions as `gitops/overlays/public`. Bootstrap still renders the Bedrock `OLSConfig` and ExternalSecret from `agentic.json`; those objects are not inside the kustomize overlay.
 
-`scripts/gitops-bootstrap.sh` templates Bedrock `OLSConfig` (`url`, `defaultModel`) and the Secrets Manager `ExternalSecret` from `agentic.json`.
-
-## Module layout
+## Handoff
 
 ```text
-modules/
-  azure/     # OpenAI + PE + Key Vault (ARO)
-  aws/       # Bedrock metadata in Secrets Manager (ROSA)
-terraform/
-  main.tf
-  platform_locals.tf
-gitops/overlays/
-  public/    # operator subscriptions
-  aws/       # Argo path for ROSA Bedrock stacks
-```
-
-## Workflow (ROSA)
-
-```text
-vp-terraform-rosa    platform.json (core + AWS)
+Installer (ARO or ROSA)
+  apply → bootstrap → platform.json
         │
         ▼
-This repo              llm_backend=aws → modules/aws → agentic.json
+This repo
+  llm_backend=azure → modules/azure → agentic.json
+  llm_backend=aws   → modules/aws   → agentic.json
         │
         ▼
-GitOps bootstrap       COO + Lightspeed + RHCL (Bedrock OLS + ESO)
+bootstrap → Cluster Observability + Lightspeed + Connectivity Link + OLSConfig
 ```

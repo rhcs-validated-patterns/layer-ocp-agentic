@@ -1,12 +1,12 @@
 # Agentic stack agent playbook
 
-Sibling of cluster installers (ARO: [`validated-pattern-aro-hcp`](../validated-pattern-aro-hcp)). Prerequisites: installer `apply` → `kubeconfig` → `external-auth` → `bootstrap` → `platform`. Contracts: [`docs/guides/platform-contract.md`](docs/guides/platform-contract.md).
+Sibling of the cluster installers. ARO: [`validated-pattern-aro-hcp`](../validated-pattern-aro-hcp) (`llm_backend=azure`). ROSA: [`vp-terraform-rosa`](../vp-terraform-rosa) (`llm_backend=aws`). Prerequisites: installer `apply` → kubeconfig (`kubeconfig` / `external-auth` on ARO, `login` on ROSA) → `bootstrap` → `platform`. Contracts: [`docs/guides/platform-contract.md`](docs/guides/platform-contract.md).
 
 ## Done-when
 
 | Step | Command | Done when |
 |------|---------|-----------|
-| Platform | `ARO_HCP_ROOT=… make cluster.<name>.apply` (`llm_backend=azure` default) | `agentic.json` written; `modules/azure` PE + KV secrets |
+| Platform | `ARO_HCP_ROOT=…` or `VP_TERRAFORM_ROSA_ROOT=… make cluster.<name>.apply` | `agentic.json` written; Azure PE + Key Vault secrets, or Bedrock Secrets Manager secret |
 | GitOps | `make cluster.<name>.bootstrap` | COO, Lightspeed, RHCL CSVs `Succeeded`; `OLSConfig` applied |
 | Verify | `make cluster.<name>.verify` | `scripts/verify.sh` exits 0 |
 

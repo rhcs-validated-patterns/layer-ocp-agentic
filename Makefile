@@ -10,7 +10,7 @@ VP_TERRAFORM_ROSA_ROOT ?=
 ROSA_ROOT ?=
 ROSA_PROFILE ?=
 
-.PHONY: help fmt lint test cluster.%
+.PHONY: help fmt lint test cluster.% docs-venv docs-preview docs-serve docs-build
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z0-9_.-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-28s %s\n", $$1, $$2}'
@@ -50,3 +50,31 @@ lint: ## Validate Terraform and shellcheck
 
 test: lint ## terraform test + bats
 	@if command -v bats >/dev/null; then bats $(ROOT_DIR)/tests/bats; else echo "bats not installed; skipping"; fi
+
+# Documentation (MkDocs Material)
+VENV_DOCS ?= .venv-docs
+DOCS_MKDOCS := $(VENV_DOCS)/bin/mkdocs
+DOCS_PIP := $(VENV_DOCS)/bin/pip
+
+docs-venv: ## Create docs virtualenv and install requirements-docs.txt
+	@if ! command -v python3 >/dev/null 2>&1; then \
+		echo "Error: python3 is required for documentation preview" >&2; \
+		exit 1; \
+	fi
+	@if [ ! -d "$(VENV_DOCS)" ]; then \
+		echo "Creating docs virtualenv at $(VENV_DOCS)..."; \
+		python3 -m venv "$(VENV_DOCS)"; \
+	fi
+	@$(DOCS_PIP) install -q -r requirements-docs.txt
+	@echo "Docs dependencies ready"
+
+docs-preview: docs-venv ## Serve docs at http://127.0.0.1:8000/layer-ocp-agentic/
+	@echo "Documentation preview: http://127.0.0.1:8000/layer-ocp-agentic/"
+	@echo "Press Ctrl+C to stop"
+	@$(DOCS_MKDOCS) serve
+
+docs-serve: docs-preview ## Alias for docs-preview
+
+docs-build: docs-venv ## Build documentation site (strict link checking)
+	@$(DOCS_MKDOCS) build --strict
+	@echo "Documentation built successfully"
